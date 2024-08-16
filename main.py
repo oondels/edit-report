@@ -1,86 +1,121 @@
-from tkinter import filedialog
 import tkinter as tk
 import ttkbootstrap as ttk
+import os
+import re
+
+from tkinter import filedialog
+from tkinter import messagebox
 from ttkbootstrap.constants import *
+from PIL import Image, ImageTk
 from docx import Document
 from docx.shared import Inches
 from datetime import date
-from tkinter import messagebox
 
-relatorio = Document("./data/relatorio-legendado.docx")
+filenames = []
+
+def success_popup():
+    messagebox.showinfo("Sucesso!", "O relatório foi salvo com sucesso!")
+
+def show_error():
+    messagebox.showerror("Erro", "Preencha todos os campos antes de prosseguir!")
 
 def editDoc(doc, padrao, novo):
     for paragrafo in doc.paragraphs:
         if padrao in paragrafo.text:
             paragrafo.text = paragrafo.text.replace(padrao, novo)
 
-def addDefects(array):
+def addDefects(relatorio, array):
     defects_table = relatorio.tables[0]
     for defect in array:       
         newDefect = defects_table.cell(0,0)
         newDefect.add_paragraph().add_run().add_text(defect)
-    print("Defeitos adicionados...")
     
-def addServices(array):
+def addServices(relatorio, array):
     services_table = relatorio.tables[1]
     for service in array:       
         newService = services_table.cell(0,0)
         newService.add_paragraph().add_run().add_text(service)
-    print("Defeitos adicionados...")
 
-def addMeasures(array):
+def addMeasures(relatorio, array):
     measures_table = relatorio.tables[2]
     
     for measure in array:
         new_meausre = measures_table.cell(0,0)
         new_meausre.add_paragraph().add_run().add_text(measure)
 
-def sendImages():
+def selectImages():   
+    global filenames 
     filenames = filedialog.askopenfilenames(title="Selecione as imagens", filetypes=[("Image files", "*.jpg *.png *.jpeg *.bmp")])
+    
+    return filenames
+    
+def sendImages(relatorio):
     pictures_table = relatorio.tables[3]
-
+    
     for i in range(0, len(filenames), 2):
         sub_array = filenames[i : i+2]
         row = pictures_table.add_row()
         
         for j in range(len(sub_array)):
             cell = row.cells[j]
-            cell.add_paragraph().add_run().add_picture(sub_array[j], width=Inches(1.0))
-            
-def success_popup():
-    # Exibe uma caixa de diálogo de informação
-    messagebox.showinfo("Sucesso!", "O relatório foi salvo com sucesso!")
-
-def show_error():
-    # Exibe uma caixa de diálogo de erro
-    messagebox.showerror("Título do Erro", "Ocorreu um erro!")
+            cell.add_paragraph().add_run().add_picture(sub_array[j], width=Inches(5.0))
 
 def saveRelatorio():
+    # Load document
+    relatorio = Document("./data/relatorio-padrao.docx")
+    
+    # Get current date
     data_atual = date.today()
-    print(data_atual)
-    equipament.delete(0, END)
-    osNumber.delete(0, END)
-    defects.delete("1.0",END)
-    services.delete("1.0",END)
-    measure.delete("1.0",END)
     
-    editDoc(relatorio, "nome-equipamento", equipament.get())
-    editDoc(relatorio, "numero-os", osNumber.get())
-    editDoc(relatorio, "data-entrada", date_entrada.entry.get())
-    editDoc(relatorio, "data-execucao", execution.entry.get())
+    # Get the entries
+    sendImages(relatorio)
+    newEquipament = equipament.get().strip()
+    newOsNumber = osNumber.get().strip()
+    newEmpresa = empresaContratante.get().strip()
+    newdate_entrada = date_entrada.entry.get().strip()
+    newExecution = execution.entry.get().strip()
     
-    array_defects = defects.get("1.0",END).split(",")
-    addDefects(array_defects)
+    # Split the entries into array
+    array_defects = re.split(r"[,\n]", defects.get("1.0",END).strip())
+    array_services = re.split(r"[,\n]", services.get("1.0",END).strip())
+    array_measures = re.split(r"[,\n]", measure.get("1.0",END).strip())    
     
-    array_services = services.get("1.0",END).split(",")
-    addServices(array_services)
+    # Check if has empty entries
+    if ((not newEmpresa) or (not newEquipament) or (not newOsNumber) or (not array_defects  or (len(array_defects) == 1 and not array_defects[0])) 
+        or (not array_services  or (len(array_services) == 1 and not array_services[0])) 
+        or (not array_measures or (len(array_measures) == 1 and not array_measures[0])) or (not newdate_entrada) or (not newExecution)):
+        
+        return show_error()
     
-    array_measures = measure.get("1.0",END).split(",")
-    addMeasures(array_measures)
+    # Insert the entries
+    editDoc(relatorio, "nome-equipamento", newEquipament)
+    editDoc(relatorio, "numero-os", newOsNumber)
+    editDoc(relatorio, "data-entrada", newdate_entrada)
+    editDoc(relatorio, "data-execucao", newExecution)
+    editDoc(relatorio, "empresa-contratante", newEmpresa)
+
+    addDefects(relatorio, array_defects)
+    addServices(relatorio, array_services)
+    addMeasures(relatorio, array_measures)
 
     success_popup()
-    relatorio.save("./Relatorios-Editados/relatorio_editado.docx")
-    print("Relatorio salvo")
+    
+    
+    path = "./Relatorios-Editados/"
+    filename = f"./Relatorios-Editados/relatorio_editado-{newEquipament}-{data_atual}.docx"
+    
+    # Reset the entries
+    equipament.delete(0, END)
+    osNumber.delete(0, END)
+    empresaContratante.delete(0, END)
+    defects.delete("1.0", END)
+    services.delete("1.0", END)
+    measure.delete("1.0", END)
+    
+    if not os.path.exists(path):
+        os.makedirs(path)
+    
+    relatorio.save(filename)
 
 if __name__ == "__main__":
     app = ttk.Window(themename="superhero", minsize = (900,600))
@@ -96,13 +131,18 @@ if __name__ == "__main__":
     info_frame = ttk.Frame(main_frame, padding="10", relief="solid", borderwidth=1)
     info_frame.grid(row=0, column=0, columnspan=2, sticky="nsew")
     
-    labelTitle = ttk.Label(info_frame, text="Relatórios - Diesel Hidráulica", font=("Helvetica", 16, "bold"))
-    labelTitle.pack(pady=10)
+    logo = Image.open("./data/jo-diesel.jpg")
+    logo = logo.resize((100, 100))  # Ajuste o tamanho da imagem conforme necessário
+    logo_tk = ImageTk.PhotoImage(logo)
+    logo_label = ttk.Label(info_frame, image=logo_tk)
+    logo_label.image = logo_tk  # Mantenha uma referência da imagem
+    logo_label.pack(pady=5)
     
-    label_select_number = ttk.Label(info_frame, text="Selecione quantidade de relatórios:")
-    label_select_number.pack(pady=5)
-    select_number = ttk.Spinbox(info_frame, width=5, bootstyle="info")
-    select_number.pack(pady=5)
+    labelTitle = ttk.Label(info_frame, text="Relatórios - Diesel Hidráulica", font=("Helvetica", 16, "bold"))
+    labelTitle.pack(pady=5)
+    
+    engineerName = ttk.Label(info_frame, text="Engenheiro - Marvin Portela", font=("Helvetica", 10, "bold"), bootstyle="success")
+    engineerName.pack(pady=3)
     
     # Frame para a primeira coluna
     div_one = ttk.Frame(main_frame, padding="10", relief=RAISED, borderwidth=2)
@@ -118,15 +158,20 @@ if __name__ == "__main__":
     osNumber = ttk.Entry(div_one, bootstyle="primary", width=30)
     osNumber.grid(row=3, column=0, padx=5, pady=5)
     
+    empresaContranteLabel = ttk.Label(div_one, text="Empresa Contratante", font=("Helvetica", 12, "bold"))
+    empresaContranteLabel.grid(row=4, column=0, padx=5, pady=5, sticky=W)
+    empresaContratante = ttk.Entry(div_one, bootstyle="primary", width=30)
+    empresaContratante.grid(row=5, column=0, padx=5, pady=5)
+    
     dateLabel = ttk.Label(div_one, text="Data de entrada", font=("Helvetica", 12, "bold"))
-    dateLabel.grid(row=4, column=0, padx=5, pady=5, sticky=W)
+    dateLabel.grid(row=6, column=0, padx=5, pady=5, sticky=W)
     date_entrada = ttk.DateEntry(div_one, bootstyle="primary", width=30)
-    date_entrada.grid(row=5, column=0, padx=5, pady=5)
+    date_entrada.grid(row=7, column=0, padx=5, pady=5)
     
     executionLabel = ttk.Label(div_one, text="Data de execução", font=("Helvetica", 12, "bold"))
-    executionLabel.grid(row=6, column=0, padx=5, pady=5, sticky=W)
+    executionLabel.grid(row=8, column=0, padx=5, pady=5, sticky=W)
     execution = ttk.DateEntry(div_one, bootstyle="success", width=30)
-    execution.grid(row=7, column=0, padx=5, pady=5)
+    execution.grid(row=9, column=0, padx=5, pady=5)
     
     # Frame para a segunda coluna
     div_two = ttk.Frame(main_frame, padding="10", relief=RAISED, borderwidth=2)
@@ -149,7 +194,7 @@ if __name__ == "__main__":
     
     picturesLabel = ttk.Label(div_two, text="Fotos", font=("Helvetica", 12, "bold"))
     picturesLabel.grid(row=6, column=0, padx=5, pady=5, sticky=W)
-    pictures = ttk.Button(div_two, text="Selecionar fotos", bootstyle="success", command=sendImages)
+    pictures = ttk.Button(div_two, text="Selecionar fotos", bootstyle="success", command=selectImages)
     pictures.grid(row=7, column=0, padx=5, pady=5)
     
     # Submit Frame
