@@ -15,7 +15,9 @@ filenames = []
 
 
 def success_popup():
-    messagebox.showinfo("Sucesso!", "O relatório foi salvo com sucesso!")
+    messagebox.showinfo(
+        "Sucesso!", "O relatório foi salvo com sucesso.\nVerifique na pasta documentos!"
+    )
 
 
 def show_error():
@@ -119,10 +121,9 @@ def saveRelatorio():
 
     success_popup()
 
-    path = f"./Relatorios-Editados/{data_atual}/"
-    filename = (
-        f"./Relatorios-Editados/relatorio_editado-{newEquipament}-{data_atual}.docx"
-    )
+    documents_path = os.path.join(os.environ["USERPROFILE"], "Documents")
+    path = documents_path + f"\\Relatorios-Editados\\{data_atual}\\"
+    filename = path + f"Relatorio-{newEquipament}-{data_atual}.docx"
 
     # Reset the entries
     equipament.delete(0, END)
@@ -139,10 +140,10 @@ def saveRelatorio():
 
 
 if __name__ == "__main__":
-    app = ttk.Window(themename="superhero", minsize=(950, 700))
+    app = ttk.Window(themename="superhero", minsize=(800, 850))
 
     app.title("Relatórios Engenharia")
-    app.geometry("950x700")
+    app.geometry("800x850")
 
     # Frame principal
     main_frame = ttk.Frame(app, padding="20")
